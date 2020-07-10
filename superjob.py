@@ -1,7 +1,9 @@
-import requests
 import os
+import requests
 from dotenv import load_dotenv
+from utils import get_salary_range
 from utils import predict_rub_salary
+
 
 
 def get_vacancies(catalogue, keyword, town, super_job_secret_key):
@@ -36,7 +38,7 @@ def get_vacancies_with_displayed_salary(vacancies):
     return vacancies_with_displayed_salary
 
 
-def get_vacancies_with_rub_currency(vacancies_with_rub_salary):
+def get_rub_vacancies(vacancies_with_rub_salary):
     rub_vacancies = []
     for vacancy in vacancies_with_rub_salary:
         currency = vacancy['currency']
@@ -45,18 +47,26 @@ def get_vacancies_with_rub_currency(vacancies_with_rub_salary):
     return rub_vacancies
 
 
-def get_vacancy_stats(language, vacancies_with_rub_currency, vacancies_found, website_name):
+def get_vacancy_stats(language, vacancies_with_rub_currency,
+                      vacancies_found, website_name):
     average_salaries_sum = 0
     vacancies_comparison = {}
     language_kind = []
     for vacancy_number, vacancy in enumerate(vacancies_with_rub_currency):
-        average_salary = predict_rub_salary(vacancy, website_name)
+        salary_from, salary_to = get_salary_range(vacancy, website_name)
+
+
+        average_salary = predict_rub_salary(salary_from, salary_to)
+
+
         average_salaries_sum += average_salary
-        expected_average_salary = int(average_salaries_sum / (vacancy_number + 1))
+        expected_average_salary = average_salaries_sum / (vacancy_number + 1)
+
+
 
         vacancies_comparison['vacancies found'] = vacancies_found
         vacancies_comparison['vacancies processed'] = vacancy_number + 1
-        vacancies_comparison['expected salary'] = expected_average_salary
+        vacancies_comparison['expected salary'] = int(expected_average_salary)
         language_kind = {language: vacancies_comparison}
     return language_kind
 
@@ -76,10 +86,12 @@ def main():
     vacancies_data = {}
     website_name = 'superjob'
     for keyword in keywords:
-        vacancies_found, vacancies = get_vacancies(catalogue, keyword, town, super_job_secret_key)
-        vacancies_with_displayed_salary = get_vacancies_with_displayed_salary(vacancies)
-        vacancies_with_rub_currency = get_vacancies_with_rub_currency(vacancies_with_displayed_salary)
-        stats = get_vacancy_stats(keyword, vacancies_with_rub_currency, vacancies_found, website_name)
+        vacancies_found, vacancies = get_vacancies(catalogue, keyword,
+                                                   town, super_job_secret_key)
+        vacancies_with_salary = get_vacancies_with_displayed_salary(vacancies)
+        rub_vacancy = get_rub_vacancies(vacancies_with_salary)
+        stats = get_vacancy_stats(keyword, rub_vacancy,
+                                  vacancies_found, website_name)
         vacancies_data.update(stats)
     return vacancies_data
 
